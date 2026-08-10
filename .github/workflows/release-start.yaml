@@ -1,0 +1,62 @@
+name: Start Release
+
+on:
+  push:
+    tags:
+      - 'setRelease-v*'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-pr:
+    name: Create Version Bump PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse version from tag
+        id: version
+        shell: bash
+        run: |
+          RAW="${GITHUB_REF#refs/tags/setRelease-v}"
+          VERSION="${RAW}"
+          VERSION_TAG="v${RAW}"
+          IS_RC="false"
+          if [[ "${RAW}" == *"rc"* ]]; then
+            IS_RC="true"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+          echo "is_rc=${IS_RC}" >> $GITHUB_OUTPUT
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+
+      - name: Install deps
+        run: |
+          pip install base58 \
+            importlib_metadata==3.10.1 \
+            packaging \
+            python-dateutil \
+            msgpack-python \
+            jsonpickle
+
+      - name: Bump version
+        run: ./bump_version.sh ${{ steps.version.outputs.version }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: bump version to ${{ steps.version.outputs.version_tag }}"
+          branch: "release/${{ steps.version.outputs.version_tag }}"
+          title: "${{ steps.version.outputs.version_tag }} - Release"
+          body: |
+            ## Release ${{ steps.version.outputs.version_tag }}
+
+            Version bump to ${{ steps.version.outputs.version }}.
+          token: ${{ secrets.GITHUB_TOKEN }}

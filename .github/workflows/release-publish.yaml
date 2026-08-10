@@ -1,0 +1,102 @@
+name: Publish Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plenum/__version__.json'
+
+permissions:
+  contents: write
+
+env:
+  BASE_IMAGE: ghcr.io/${{ github.repository_owner }}/indy-plenum-base
+  PROD_IMAGE: ghcr.io/${{ github.repository_owner }}/indy-plenum
+
+jobs:
+  extract-version:
+    name: Extract Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      version_tag: ${{ steps.parse.outputs.version_tag }}
+      is_rc: ${{ steps.parse.outputs.is_rc }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse version from commit message
+        id: parse
+        shell: bash
+        run: |
+          MSG="${{ github.event.head_commit.message }}"
+          VERSION=$(grep -oP "\d+\.\d+\.\d+((-|.)?rc\d+)?" <<< "${MSG}" || true)
+          if [[ -z "${VERSION}" ]]; then
+            echo "No version found in commit message"
+            exit 1
+          fi
+          VERSION_TAG="v${VERSION}"
+          IS_RC="false"
+          if [[ "${VERSION}" == *"rc"* ]]; then
+            IS_RC="true"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+          echo "is_rc=${IS_RC}" >> $GITHUB_OUTPUT
+
+  publish:
+    name: Build and Publish
+    needs: [extract-version]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push base image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.base
+          push: true
+          tags: |
+            ${{ env.BASE_IMAGE }}:${{ needs.extract-version.outputs.version_tag }}
+            ${{ env.BASE_IMAGE }}:latest
+
+      - name: Build and push production image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ env.PROD_IMAGE }}:${{ needs.extract-version.outputs.version_tag }}
+            ${{ env.PROD_IMAGE }}:latest
+          build-args: BASE_IMAGE=${{ env.BASE_IMAGE }}:latest
+
+  create-release:
+    name: Create GitHub Release
+    needs: [extract-version, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.extract-version.outputs.version_tag }}
+          name: ${{ needs.extract-version.outputs.version_tag }}
+          generate_release_notes: true
+          prerelease: ${{ needs.extract-version.outputs.is_rc }}
+          body: |
+            ## ${{ needs.extract-version.outputs.version_tag }}
+
+            Docker images:
+            - `${{ env.PROD_IMAGE }}:${{ needs.extract-version.outputs.version_tag }}`
+            - `${{ env.PROD_IMAGE }}:latest`

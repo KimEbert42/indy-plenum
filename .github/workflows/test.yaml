@@ -1,0 +1,66 @@
+name: "Test Indy Plenum"
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        required: true
+        type: string
+
+jobs:
+  indy_plenum_tests:
+    name: Sliced Module Tests
+    runs-on: ubuntu-22.04
+    env:
+      NODE_OPTIONS: "--max_old_space_size=4096"
+    container:
+      image: ${{ inputs.image_tag }}
+    strategy:
+      matrix:
+        module: [plenum]
+        slice: [1, 2, 3, 4, 5, 6, 7, 8]
+      fail-fast: false
+    steps:
+      - name: Run Indy Plenum ${{ matrix.module }} test slice ${{ matrix.slice }}/${{ strategy.job-total }}
+        id: plenum-test
+        run: RUSTPYTHONASYNCIODEBUG=0 python3 runner.py --pytest "python3 -m pytest -l -vv" --dir "${{ matrix.module }}" --output "test-result-plenum-${{ matrix.slice }}.txt" --test-only-slice "${{ matrix.slice }}/${{ strategy.job-total }}"
+
+      - name: Publish Test Report
+        if: success() || failure()
+        uses: scacap/action-surefire-report@v1
+        continue-on-error: true
+        with:
+          check_name: Indy Plenum ${{ matrix.module }} Test Report for slice ${{ matrix.slice }}/${{ strategy.job-total }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          report_paths: "*-test-results.xml"
+
+      - name: Upload Detailed Test Failure Results
+        if: (steps.plenum-test.outcome == 'failure') && failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detailed-test-result-slice-${{ matrix.slice }}
+          path: test-result-plenum-${{ matrix.slice }}.txt
+          retention-days: 5
+
+  indy_plenum_module_tests:
+    name: Module Tests
+    runs-on: ubuntu-22.04
+    env:
+      NODE_OPTIONS: "--max_old_space_size=4096"
+    container:
+      image: ${{ inputs.image_tag }}
+    strategy:
+      matrix:
+        module: [common, crypto, ledger, state, storage, stp_core, stp_zmq]
+      fail-fast: false
+    steps:
+      - name: Run Indy Plenum ${{ matrix.module }} tests
+        run: python3 -m pytest -l -vv --junitxml=test-result-plenum-${{ matrix.module }}.xml ${{ matrix.module }}
+
+      - name: Publish Test Report
+        uses: scacap/action-surefire-report@v1
+        continue-on-error: true
+        with:
+          check_name: Indy Plenum ${{ matrix.module }} Test Report
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          report_paths: test-result-plenum-${{ matrix.module }}.xml
