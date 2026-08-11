@@ -22,21 +22,25 @@ RUN git clone https://github.com/evernym/rocksdb.git /tmp/rocksdb \
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && . "$HOME/.cargo/env" \
-    && rustup install 1.75.0 \
+    && rustup install 1.72.0 \
     && git clone --depth 1 --branch v0.3.2 https://github.com/hyperledger/ursa.git /tmp/ursa \
     && cd /tmp/ursa \
     && cargo build --release -p ursa --no-default-features \
        --features "encryption,ffi,hashes,kex,serde,signatures" \
     && cp /tmp/ursa/target/release/libursa.so /build/usr/lib/libursa.so \
     && rm -rf /tmp/ursa \
-    && cd / \
-    # Pinned to the commit that python3-indy==1.16.0.post236 was built from.
-    # The v1.16.0 tag predates the freeze ledgers C API (PR #2356), which is
-    # required by the freeze ledgers tests in indy-plenum.
-    && git clone --depth 1 d439b959fb5eab9743fbcc4adaa86673a257ddff https://github.com/hyperledger/indy-sdk.git /tmp/indy-sdk \
+    && cd /
+
+# Pinned to the commit that python3-indy==1.16.0.post236 was built from.
+# The v1.16.0 tag predates the freeze ledgers C API (PR #2356), which is
+# required by the freeze ledgers tests in indy-plenum.
+RUN . "$HOME/.cargo/env" \
+    && git clone https://github.com/hyperledger/indy-sdk.git /tmp/indy-sdk \
+    && cd /tmp/indy-sdk \
+    && git checkout d439b959fb5eab9743fbcc4adaa86673a257ddff \
     && cd /tmp/indy-sdk/libindy \
     && sed -i 's/^openssl = "0.10"/openssl = { version = "0.10", features = ["vendored"] }/' Cargo.toml \
-    && cargo +1.75.0 build --release \
+    && cargo +1.72.0 build --release \
     && cp target/release/libindy.so /build/usr/lib/libindy.so \
     && ldconfig \
     && cd / \
