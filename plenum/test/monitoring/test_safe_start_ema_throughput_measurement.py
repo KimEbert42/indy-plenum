@@ -1,5 +1,4 @@
 import pytest
-import time
 
 from plenum.common.throughput_measurements import SafeStartEMAThroughputMeasurement
 
@@ -95,7 +94,7 @@ def test_get_throughput_return_if_ts_only_for_first_window(request_measurement):
 
 def test_get_throughput_return_0_if_there_is_no_any_requested(request_measurement):
     rm = request_measurement
-    assert rm.get_throughput(time.perf_counter()) == 0
+    assert rm.get_throughput(1000) == 0
 
 
 def test_update_time(request_measurement):
