@@ -1,4 +1,5 @@
 import ipaddress
+import os
 
 from abc import abstractmethod
 from collections import OrderedDict
@@ -136,11 +137,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         if not ha:
             ha = nodeReg[name]
 
+        bind_ip = getattr(self.config, 'BIND_IP', None) or os.environ.get('BIND_IP')
         nstack = dict(name=name,
                       ha=HA(*ha),
                       main=True,
                       auth_mode=AuthMode.RESTRICTED.value,
-                      queue_size=self.config.ZMQ_NODE_QUEUE_SIZE)
+                      queue_size=self.config.ZMQ_NODE_QUEUE_SIZE,
+                      bind_ip=bind_ip)
 
         cliname = cliname or (name + CLIENT_STACK_SUFFIX)
         if not cliha:
@@ -149,7 +152,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                       ha=HA(*cliha),
                       main=True,
                       auth_mode=AuthMode.ALLOW_ANY.value,
-                      queue_size=self.config.ZMQ_CLIENT_QUEUE_SIZE)
+                      queue_size=self.config.ZMQ_CLIENT_QUEUE_SIZE,
+                      bind_ip=bind_ip)
 
         if keys_dir:
             nstack['basedirpath'] = keys_dir

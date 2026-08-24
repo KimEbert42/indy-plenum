@@ -101,6 +101,7 @@ def test_validator_info_file_pool_fields_valid(looper, info, txnPoolNodesLooper,
 
     others, disconnected = txnPoolNodeSet[:-1], txnPoolNodeSet[-1]
     disconnect_node_and_ensure_disconnected(txnPoolNodesLooper, txnPoolNodeSet, disconnected)
+    looper.runFor(1)  # Allow serviceLifecycle to update cached conns
     latest_info = node._info_tool.info
 
     assert latest_info['Pool_info']['Reachable_nodes_count'] == nodeCount - 1
@@ -123,7 +124,6 @@ def test_software_info_section(info):
     assert info['Software']
     assert info['Software']['OS_version']
     assert info['Software']['Installed_packages']
-    assert info['Software']['Indy_packages']
 
 
 def test_node_info_section(info, node):

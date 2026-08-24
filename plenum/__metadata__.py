@@ -50,18 +50,18 @@ def set_manifest(manifest: Any, manifest_file: str = MANIFEST_FILE):
         _f.write('\n')
 
 
-__title__ = 'indy-plenum'
+__title__ = 'indicio-indy-plenum'
 __version_info__ = load_version()
 __version__ = __version_info__.full
 __manifest__ = load_manifest()
 __author__ = "Hyperledger"
 __author_email__ = 'hyperledger-indy@lists.hyperledger.org'
-__maintainer__ = 'Hyperledger'
-__maintainer_email__ = 'hyperledger-indy@lists.hyperledger.org'
-__url__ = 'https://github.com/hyperledger/indy-plenum'
+__maintainer__ = 'Indicio'
+__maintainer_email__ = 'support@indicio.tech'
+__url__ = 'https://github.com/Indicio-tech/indy-plenum'
 __description__ = 'Plenum Byzantine Fault Tolerant Protocol'
 __long_description__ = 'Plenum Byzantine Fault Tolerant Protocol'
-__download_url__ = "https://github.com/hyperledger/indy-plenum/tarball/{}".format(__version__)
+__download_url__ = "https://github.com/Indicio-tech/indy-plenum/tarball/{}".format(__version__)
 __license__ = "Apache 2.0"
 
 __all__ = [

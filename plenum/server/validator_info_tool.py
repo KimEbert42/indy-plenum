@@ -276,14 +276,10 @@ class ValidatorNodeInfoTool:
             "{} {}".format(p.metadata["Name"], p.version)
             for p in importlib_metadata.distributions()
         ]
-        output = self._run_external_cmd("dpkg-query --list | grep indy")
-        indy_packages = output.split(os.linesep)
         return {
             "Software": {
                 "OS_version": os_version,
                 "Installed_packages": installed_packages,
-                # TODO add this field
-                "Indy_packages": self._prepare_for_json(indy_packages),
             }
         }
 
