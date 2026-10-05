@@ -1,10 +1,12 @@
 import os
-
+import logging
 from typing import Iterable, Tuple
 
 import shutil
 from storage.kv_store import KeyValueStorage
 from state.util.utils import removeLockFiles
+
+logger = logging.getLogger(__name__)
 
 try:
     import rocksdb
@@ -74,14 +76,26 @@ class KeyValueStorageRocksdb(KeyValueStorage):
 
     def _get_db_opts(self):
         opts = rocksdb.Options()
+        opts.create_if_missing = True
+        
+        # Set resource-friendly defaults for containerized environments
+        opts.max_open_files = 128
+        opts.write_buffer_size = 4 * 1024 * 1024  # 4MB
+        opts.max_write_buffer_number = 2
+        opts.target_file_size_base = 2 * 1024 * 1024  # 2MB
+        
         if self._db_config is not None:
             self.__apply_db_config_opts(opts)
-        opts.create_if_missing = True
+            
         return opts
 
     def open(self):
         opts = self._get_db_opts()
-        self._db = rocksdb.DB(self._db_path, opts, read_only=self._read_only)
+        try:
+            self._db = rocksdb.DB(self._db_path, opts, read_only=self._read_only)
+        except Exception as e:
+            logger.error("Failed to open RocksDB at {}: {}".format(self._db_path, e))
+            raise
 
     def __repr__(self):
         return self._db_path
@@ -170,7 +184,17 @@ class KeyValueStorageRocksdb(KeyValueStorage):
         return itr
 
     def do_ops_in_batch(self, batch: Iterable[Tuple], is_committed=False):
-        pass
+        b = rocksdb.WriteBatch()
+        for op, key, value in batch:
+            key = self.to_byte_repr(key)
+            value = self.to_byte_repr(value)
+            if op == self.WRITE_OP:
+                b.put(key, value)
+            elif op == self.REMOVE_OP:
+                b.delete(key)
+            else:
+                raise ValueError('Unknown operation')
+        self._db.write(b, sync=is_committed)
 
     def has_key(self, key):
         key = self.to_byte_repr(key)

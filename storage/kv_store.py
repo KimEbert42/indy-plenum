@@ -23,7 +23,7 @@ class KeyValueStorage(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def do_ops_in_batch(self, batch: Iterable[Tuple]):
+    def do_ops_in_batch(self, batch: Iterable[Tuple], is_committed=False):
         pass
 
     @abstractmethod
