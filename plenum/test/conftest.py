@@ -74,7 +74,8 @@ logger = getlogger()
 GENERAL_CONFIG_DIR = 'etc/indy'
 
 DEV_NULL_PATH = '/dev/null'
-ROCKSDB_WRITE_BUFFER_SIZE = 256 * 1024
+ROCKSDB_WRITE_BUFFER_SIZE = 4 * 1024 * 1024  # 4MB - reduced from default to limit memory usage in containers
+ROCKSDB_MAX_OPEN_FILES = 256  # Reduced from unlimited to limit mmap usage in containers
 
 
 def get_data_for_role(pool_txn_data, role):
@@ -196,10 +197,26 @@ def setResourceLimits():
     flimit = 65535
     plimit = 65535
     try:
-        resource.setrlimit(resource.RLIMIT_NOFILE, (flimit, flimit))
+        resource.setrlimit(resource.RLIMIT_NOFILE, (flimit, plimit))
         resource.setrlimit(resource.RLIMIT_NPROC, (plimit, plimit))
     except Exception as ex:
         print('Could not set resource limits due to {}'.format(ex))
+
+
+def _check_shm_size(min_size_mb=256):
+    """Check if /dev/shm has sufficient space for RocksDB."""
+    try:
+        shm_stat = os.statvfs('/dev/shm')
+        shm_size_mb = (shm_stat.f_blocks * shm_stat.f_frsize) / (1024 * 1024)
+        return shm_size_mb >= min_size_mb
+    except (OSError, AttributeError):
+        return True  # Not in Docker or /dev/shm not available, assume OK
+
+
+requires_shm = pytest.mark.skipif(
+    not _check_shm_size(256),
+    reason="Insufficient /dev/shm for RocksDB (< 256MB)"
+)
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -379,6 +396,7 @@ def _tconf(general_config):
 
     # Reduce memory amplification during running tests in case of RocksDB used
     config.rocksdb_default_config['write_buffer_size'] = ROCKSDB_WRITE_BUFFER_SIZE
+    config.rocksdb_default_config['max_open_files'] = ROCKSDB_MAX_OPEN_FILES
     config.rocksdb_default_config['db_log_dir'] = DEV_NULL_PATH
 
     # FIXME: much more clear solution is to check which key-value storage type is

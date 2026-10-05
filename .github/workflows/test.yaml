@@ -11,16 +11,27 @@ jobs:
   indy_plenum_tests:
     name: Sliced Module Tests
     runs-on: ubuntu-22.04
-    env:
-      NODE_OPTIONS: "--max_old_space_size=4096"
+    timeout-minutes: 30
     container:
       image: ${{ inputs.image_tag }}
+      options: --shm-size=256m
     strategy:
       matrix:
         module: [plenum]
         slice: [1, 2, 3, 4, 5, 6, 7, 8]
       fail-fast: false
     steps:
+      - name: Log container resources
+        run: |
+          echo "=== /dev/shm ==="
+          df -h /dev/shm
+          echo "=== Memory ==="
+          head -5 /proc/meminfo
+          echo "=== CPUs ==="
+          nproc
+          echo "=== vm.max_map_count ==="
+          cat /proc/sys/vm/max_map_count 2>/dev/null || echo "not available"
+
       - name: Run Indy Plenum ${{ matrix.module }} test slice ${{ matrix.slice }}/${{ strategy.job-total }}
         id: plenum-test
         working-directory: /app
@@ -46,15 +57,22 @@ jobs:
   indy_plenum_module_tests:
     name: Module Tests
     runs-on: ubuntu-22.04
-    env:
-      NODE_OPTIONS: "--max_old_space_size=4096"
+    timeout-minutes: 15
     container:
       image: ${{ inputs.image_tag }}
+      options: --shm-size=256m
     strategy:
       matrix:
         module: [common, crypto, ledger, state, storage, stp_core, stp_zmq]
       fail-fast: false
     steps:
+      - name: Log container resources
+        run: |
+          echo "=== /dev/shm ==="
+          df -h /dev/shm
+          echo "=== Memory ==="
+          head -5 /proc/meminfo
+
       - name: Run Indy Plenum ${{ matrix.module }} tests
         working-directory: /app
         run: python3 -m pytest -l -vv --junitxml=test-result-plenum-${{ matrix.module }}.xml ${{ matrix.module }}
