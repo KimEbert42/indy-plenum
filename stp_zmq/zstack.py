@@ -70,9 +70,10 @@ class ZStack(NetworkInterface):
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
                  seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0,
                  create_listener_monitor=False, metrics=NullMetricsCollector(),
-                 mt_incoming_size=None, mt_outgoing_size=None, timer=None):
+                 mt_incoming_size=None, mt_outgoing_size=None, timer=None, bind_ip=None):
         self._name = name
         self.ha = ha
+        self._bind_ip = bind_ip or ha[0]
         self.basedirpath = basedirpath
         self.msgHandler = msgHandler
         self.seed = seed
@@ -385,7 +386,8 @@ class ZStack(NetworkInterface):
         self.listener.curve_server = True
         self.listener.identity = self.publicKey
         logger.info(
-            '{} will bind its listener at {}:{}'.format(self, self.ha[0], self.ha[1]))
+            '{} will bind its listener at {}:{} (advertised as {}:{})'.format(
+                self, self._bind_ip, self.ha[1], self.ha[0], self.ha[1]))
         set_keepalive(self.listener, self.config)
         set_zmq_internal_queue_size(self.listener, self.queue_size)
         # Cycle to deal with "Address already in use" in case of immediate stack restart.
@@ -396,13 +398,13 @@ class ZStack(NetworkInterface):
         while not bound:
             try:
                 self.listener.bind(
-                    '{protocol}://{ip}:{port}'.format(ip=self.ha[0], port=self.ha[1],
+                    '{protocol}://{ip}:{port}'.format(ip=self._bind_ip, port=self.ha[1],
                                                       protocol=ZMQ_NETWORK_PROTOCOL)
                 )
                 bound = True
             except zmq.error.ZMQError as zmq_err:
                 logger.warning("{} can not bind to {}:{}. Will try in {} secs.".
-                               format(self, self.ha[0], self.ha[1], sleep_between_bind_retries))
+                               format(self, self._bind_ip, self.ha[1], sleep_between_bind_retries))
                 bind_retry_time += sleep_between_bind_retries
                 if bind_retry_time > self.config.MAX_WAIT_FOR_BIND_SUCCESS:
                     logger.warning("{} can not bind to {}:{} for {} secs. Going to restart the service.".

@@ -45,19 +45,19 @@ class NodeBootstrap(LedgersBootstrap):
         self.node.db_manager.register_new_store(LAST_SENT_PP_STORE_LABEL, last_sent_pp_store)
 
     def _init_storages(self, domain_storage):
-        super()._init_storages(domain_storage)
-
-        # StateTsDbStorage
-        self.init_state_ts_db_storage()
-
-        # seqNoDB storage
-        self.init_seq_no_db_storage()
-
-        # nodeStatusDB
-        self.init_node_status_db_storage()
-
-        # last_sent_pp_store
-        self.init_last_sent_pp_store()
+        try:
+            super()._init_storages(domain_storage)
+            # StateTsDbStorage
+            self.init_state_ts_db_storage()
+            # seqNoDB storage
+            self.init_seq_no_db_storage()
+            # nodeStatusDB
+            self.init_node_status_db_storage()
+            # last_sent_pp_store
+            self.init_last_sent_pp_store()
+        except Exception as e:
+            logger.error("Failed to initialize storages: {}".format(e))
+            raise
 
     def _init_bls_bft(self):
         super()._init_bls_bft()

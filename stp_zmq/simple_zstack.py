@@ -32,6 +32,7 @@ class SimpleZStack(ZStack):
         ha = stackParams['ha']
         basedirpath = stackParams['basedirpath']
         queue_size = stackParams['queue_size'] if 'queue_size' in stackParams else 0
+        bind_ip = stackParams.get('bind_ip')
 
         auto = stackParams.pop('auth_mode', None)
         restricted = auto != AuthMode.ALLOW_ANY.value
@@ -49,4 +50,5 @@ class SimpleZStack(ZStack):
                          metrics=metrics,
                          mt_incoming_size=mt_incoming_size,
                          mt_outgoing_size=mt_outgoing_size,
-                         timer=timer)
+                         timer=timer,
+                         bind_ip=bind_ip)

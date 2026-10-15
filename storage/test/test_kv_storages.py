@@ -106,6 +106,19 @@ def test_put_string_and_bytes(kv):
     assert b'v2' == v4
 
 
+def test_do_ops_in_batch(kv):
+    batch = [(kv.WRITE_OP, 'k1', 'v1'), (kv.WRITE_OP, 'k2', 'v2'), (kv.WRITE_OP, 'k3', 'v3')]
+    kv.do_ops_in_batch(batch, is_committed=True)
+
+    v1 = kv.get('k1')
+    v2 = kv.get('k2')
+    v3 = kv.get('k3')
+    
+    assert b'v1' == v1
+    assert b'v2' == v2
+    assert b'v3' == v3
+
+
 def test_remove_string(kv):
     kv.put('k1', 'v1')
     hasKeyBeforeRemove = 'k1' in kv

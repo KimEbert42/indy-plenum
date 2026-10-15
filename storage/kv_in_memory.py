@@ -36,7 +36,7 @@ class KeyValueStorageInMemory(KeyValueStorage):
         for key, value in batch:
             self.put(key, value)
 
-    def do_ops_in_batch(self, batch: Iterable[Tuple]):
+    def do_ops_in_batch(self, batch: Iterable[Tuple], is_committed=False):
         for op, key, value in batch:
             if op == self.WRITE_OP:
                 self.put(key, value)

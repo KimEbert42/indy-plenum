@@ -73,7 +73,7 @@ class KeyValueStorageLeveldb(KeyValueStorage):
             b.Put(key, value)
         self._db.Write(b, sync=False)
 
-    def do_ops_in_batch(self, batch: Iterable[Tuple]):
+    def do_ops_in_batch(self, batch: Iterable[Tuple], is_committed=False):
         b = leveldb.WriteBatch()
         for op, key, value in batch:
             key = self.to_byte_repr(key)
@@ -84,7 +84,7 @@ class KeyValueStorageLeveldb(KeyValueStorage):
                 b.Delete(key)
             else:
                 raise ValueError('Unknown operation')
-        self._db.Write(b, sync=False)
+        self._db.Write(b, sync=is_committed)
 
     def open(self):
         self._db = leveldb.LevelDB(self.db_path)

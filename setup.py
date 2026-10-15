@@ -1,11 +1,7 @@
 import os
 import sys
-import subprocess
 
-import distutils.cmd
 from setuptools import setup, find_packages
-from setuptools.command.install import install
-from setuptools.command.develop import develop
 
 v = sys.version_info
 if sys.version_info < (3, 8):
@@ -31,45 +27,7 @@ tests_require = ['attrs==20.3.0', 'pytest==6.2.5', 'pytest-xdist==2.2.1', 'pytes
                  'python3-indy==1.16.0.post236', 'pytest-asyncio==0.14.0']
 
 
-class PyZMQCommand(distutils.cmd.Command):
-    description = 'pyzmq install target'
-
-    version = 'pyzmq==22.3.0'
-    options = '--install-option=--zmq=bundled'
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        command = ['pip', 'install', self.version, self.options]
-        subprocess.check_call(command)
-
-
-class InstallCommand(install):
-    description = 'install target'
-
-    def run(self):
-        install.run_command(self, command='pyzmq')
-        install.run(self)
-
-
-class DevelopCommand(develop):
-    description = 'develop target'
-
-    def run(self):
-        develop.run_command(self, command='pyzmq')
-        develop.run(self)
-
-
 setup(
-    cmdclass={
-        'install': InstallCommand,
-        'develop': DevelopCommand,
-        'pyzmq': PyZMQCommand,
-    },
     name=metadata['__title__'],
     version=metadata['__version__'],
     author=metadata['__author__'],
@@ -108,7 +66,7 @@ setup(
                         # Pinned because of changing size of `crypto_sign_SECRETKEYBYTES` from 32 to 64
                         'libnacl==1.6.1',
                         # 'msgpack-python==0.5.6',
-                        'msgpack-python',
+                        'msgpack==0.5.6',
                         # 'orderedset==2.0.3',
                         'orderedset',
                         # 'packaging==20.9',
@@ -123,7 +81,7 @@ setup(
                         # 'python-dateutil==2.8.1',
                         'python-dateutil',
                         # 'python-rocksdb==0.7.0',
-                        'python-rocksdb',
+                        'python-rocksdb==0.7.0',
                         'python-ursa==0.1.1',
                         ### Tests fail without version pin (GHA run: https://github.com/udosson/indy-plenum/actions/runs/1078745445)
                         'rlp==2.0.0',

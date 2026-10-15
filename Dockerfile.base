@@ -1,0 +1,104 @@
+FROM ubuntu:22.04 AS builder
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3 python3-pip python3-dev \
+    git wget curl ca-certificates \
+    libsnappy-dev libbz2-dev liblz4-dev zlib1g-dev libgflags-dev \
+    libsodium-dev \
+    libssl-dev \
+    libzmq3-dev \
+    libsqlite3-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/evernym/rocksdb.git /tmp/rocksdb \
+    && cd /tmp/rocksdb \
+    && git checkout rocksdb-5.8.8 \
+    && PORTABLE=1 EXTRA_CFLAGS="-fPIC" EXTRA_CXXFLAGS="-fPIC" \
+       make shared_lib -j$(nproc) \
+    && make install INSTALL_PATH=/build/usr \
+    && rm -rf /tmp/rocksdb
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    && . "$HOME/.cargo/env" \
+    && rustup install 1.72.0 \
+    && git clone --depth 1 --branch v0.3.2 https://github.com/hyperledger/ursa.git /tmp/ursa \
+    && cd /tmp/ursa \
+    && cargo build --release -p ursa --no-default-features \
+       --features "encryption,ffi,hashes,kex,serde,signatures" \
+    && cp /tmp/ursa/target/release/libursa.so /build/usr/lib/libursa.so \
+    && rm -rf /tmp/ursa \
+    && cd /
+
+# Pinned to the commit that python3-indy==1.16.0.post236 was built from.
+# The v1.16.0 tag predates the freeze ledgers C API (PR #2356), which is
+# required by the freeze ledgers tests in indy-plenum.
+RUN . "$HOME/.cargo/env" \
+    && git clone https://github.com/hyperledger/indy-sdk.git /tmp/indy-sdk \
+    && cd /tmp/indy-sdk \
+    && git checkout d439b959fb5eab9743fbcc4adaa86673a257ddff \
+    && cd /tmp/indy-sdk/libindy \
+    && sed -i 's/^openssl = "0.10"/openssl = { version = "0.10", features = ["vendored"] }/' Cargo.toml \
+    && cargo +1.72.0 build --release \
+    && cp target/release/libindy.so /build/usr/lib/libindy.so \
+    && ldconfig \
+    && cd / \
+    && rm -rf /tmp/indy-sdk
+
+RUN pip3 install pyzmq==22.3.0 --install-option=--zmq=bundled
+
+RUN pip3 install python-ursa==0.1.1
+
+RUN pip3 install Cython==0.29.36
+
+ENV CPLUS_INCLUDE_PATH=/build/usr/include
+ENV LIBRARY_PATH=/build/usr/lib
+ENV LD_LIBRARY_PATH=/build/usr/lib
+
+RUN pip3 install \
+    base58 \
+    importlib_metadata==3.10.1 \
+    ioflo \
+    jsonpickle \
+    leveldb \
+    libnacl==1.6.1 \
+    msgpack==0.5.6 \
+    orderedset \
+    packaging \
+    portalocker==2.7.0 \
+    prompt_toolkit>=3.0.18 \
+    psutil \
+    pympler==0.8 \
+    python-dateutil \
+    python-rocksdb==0.7.0 \
+    rlp==2.0.0 \
+    semver==2.13.0 \
+    sha3 \
+    six \
+    sortedcontainers==2.1.0 \
+    ujson==1.33
+
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip \
+    ca-certificates \
+    libgflags2.2 \
+    libsnappy1v5 \
+    libbz2-1.0 \
+    liblz4-1 \
+    libssl3 \
+    libzmq5 \
+    libsqlite3-0 \
+    libsodium23 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /build/usr/lib/libursa.so /usr/lib/libursa.so
+COPY --from=builder /build/usr/lib/libindy.so /usr/lib/libindy.so
+COPY --from=builder /build/usr/lib/librocksdb* /usr/lib/
+
+RUN ldconfig
+
+COPY --from=builder /usr/local /usr/local
+
